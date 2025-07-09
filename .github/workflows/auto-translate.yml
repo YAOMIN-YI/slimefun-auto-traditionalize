@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # - uses: actions/checkout@v4
+
       - name: Setup Java (Zulu, Maven cache)
         uses: actions/setup-java@v4
         with:
@@ -17,7 +19,8 @@ jobs:
           java-version: 23
           java-package: jdk
           architecture: x64
-
+          # cache: maven
+          
       - name: Checkout
         uses: actions/checkout@v3
 
@@ -28,30 +31,37 @@ jobs:
 
       - name: Pull from upstream
         run: |
-          git clone https://github.com/SlimefunGuguProject/ExoticGarden.git
-          cd ExoticGarden
+          git clone https://github.com/SlimefunGuguProject/Slimefun4.git
+          cd ./Slimefun4/
+          # git remote add upstream https://github.com/SlimefunGuguProject/Slimefun4.git
+          # git fetch upstream
+          # git merge upstream/main --allow-unrelated-histories -m "Sync upstream"
+          # git push origin main
 
       - name: Install OpenCC
         run: sudo apt-get update && sudo apt-get install -y opencc
 
       - name: Convert .java & .yml to Traditional Chinese (Taiwan)
         run: |
-          find ExoticGarden -type f \( -name "*.java" -o -name "*.yml" \) -print \
+          find . -path ./Slimefun4/src/main/resources/languages -prune -o -type f \( -name "*.java" -o -name "*.yml" \) -print \
             | while read file; do
                 opencc -i "$file" -o "$file.tmp" -c s2twp.json && mv "$file.tmp" "$file"
               done
 
       - name: Replace zh-CN with zh-TW in config.yml
         run: |
-          find ExoticGarden -name config.yml -exec sed -i 's/zh-CN/zh-TW/g' {} \;
+          if [ -f config.yml ]; then
+            sed -i 's/zh-CN/zh-TW/g' config.yml
+          fi
+          find . -name config.yml -exec sed -i 's/zh-CN/zh-TW/g' {} \;
 
       - name: Build Java project
         run: |
-          cd ExoticGarden
+          cd ./Slimefun4/
           mvn -B package --errors
-
+          
       - name: Upload JAR as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: built-jar
-          path: ExoticGarden/target/*.jar
+          path: Slimefun4/target/*.jar
