@@ -10,15 +10,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Setup Java (Zulu, Maven cache)
+      - name: Setup Java (Zulu 23)
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: 23
           java-package: jdk
           architecture: x64
-          
-      - name: Checkout
+
+      - name: Checkout ExoticGarden repo
         uses: actions/checkout@v3
 
       - name: Setup Git
@@ -26,32 +26,37 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Pull from ExoticGarden
+      - name: Clone Slimefun4 source (for local install)
         run: |
-          git clone https://github.com/SlimefunGuguProject/ExoticGarden.git
-          cd ./ExoticGarden/
+          git clone https://github.com/SlimefunGuguProject/Slimefun4.git
+
+      - name: Build Slimefun4 and install locally
+        run: |
+          cd Slimefun4
+          mvn clean install -DskipTests
 
       - name: Install OpenCC
-        run: sudo apt-get update && sudo apt-get install -y opencc
-
-      - name: Convert .java & .yml to Traditional Chinese (Taiwan)
         run: |
-          find ./ExoticGarden/ -type f \( -name "*.java" -o -name "*.yml" \) -print \
+          sudo apt-get update
+          sudo apt-get install -y opencc
+
+      - name: Convert .java and .yml files to Traditional Chinese
+        run: |
+          find . -path ./Slimefun4 -prune -o -type f \( -name "*.java" -o -name "*.yml" \) -print \
             | while read file; do
                 opencc -i "$file" -o "$file.tmp" -c s2twp.json && mv "$file.tmp" "$file"
               done
 
       - name: Replace zh-CN with zh-TW in config.yml
         run: |
-          find ./ExoticGarden/ -name config.yml -exec sed -i 's/zh-CN/zh-TW/g' {} \;
+          find . -name config.yml -exec sed -i 's/zh-CN/zh-TW/g' {} \;
 
-      - name: Build Java project
+      - name: Build ExoticGarden plugin
         run: |
-          cd ./ExoticGarden/
-          mvn -B package --errors
+          mvn clean package -DskipTests
 
       - name: Upload JAR as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: built-jar
-          path: ExoticGarden/target/*.jar
+          name: exoticgarden-jar
+          path: target/*.jar
