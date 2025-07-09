@@ -2,15 +2,14 @@ name: Sync, Convert, and Build
 
 on:
   schedule:
-    - cron: '0 0 1 * *'  # 每月的1號執行
-  workflow_dispatch:  # 手動觸發工作流程
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
 
 jobs:
   sync-and-build:
     runs-on: ubuntu-latest
 
     steps:
-      # 設置 Java 環境（Zulu JDK 23）
       - name: Setup Java (Zulu, Maven cache)
         uses: actions/setup-java@v4
         with:
@@ -19,54 +18,38 @@ jobs:
           java-package: jdk
           architecture: x64
           
-      # Checkout 代碼
       - name: Checkout
         uses: actions/checkout@v3
 
-      # 設置 Git 配置
       - name: Setup Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      # 從 upstream 拉取更新
-      - name: Pull from upstream
+      - name: Pull from ExoticGarden
         run: |
           git clone https://github.com/SlimefunGuguProject/ExoticGarden.git
           cd ./ExoticGarden/
-          # 如果需要同步到上游repo，可以使用如下命令
-          # git remote add upstream https://github.com/SlimefunGuguProject/ExoticGarden.git
-          # git fetch upstream
-          # git merge upstream/main --allow-unrelated-histories -m "Sync upstream"
-          # git push origin main
 
-      # 安裝 OpenCC 用於簡繁轉換
       - name: Install OpenCC
         run: sudo apt-get update && sudo apt-get install -y opencc
 
-      # 將 .java 和 .yml 文件轉換為繁體中文（台灣）
       - name: Convert .java & .yml to Traditional Chinese (Taiwan)
         run: |
-          find . -path ./ExoticGarden/src/main/resources/languages -prune -o -type f \( -name "*.java" -o -name "*.yml" \) -print \
+          find ./ExoticGarden/ -type f \( -name "*.java" -o -name "*.yml" \) -print \
             | while read file; do
                 opencc -i "$file" -o "$file.tmp" -c s2twp.json && mv "$file.tmp" "$file"
               done
 
-      # 在 config.yml 中將 zh-CN 替換為 zh-TW
       - name: Replace zh-CN with zh-TW in config.yml
         run: |
-          if [ -f config.yml ]; then
-            sed -i 's/zh-CN/zh-TW/g' config.yml
-          fi
-          find . -name config.yml -exec sed -i 's/zh-CN/zh-TW/g' {} \;
+          find ./ExoticGarden/ -name config.yml -exec sed -i 's/zh-CN/zh-TW/g' {} \;
 
-      # 編譯 Java 項目
       - name: Build Java project
         run: |
           cd ./ExoticGarden/
           mvn -B package --errors
-          
-      # 上傳 JAR 文件為 Artifact
+
       - name: Upload JAR as Artifact
         uses: actions/upload-artifact@v4
         with:
