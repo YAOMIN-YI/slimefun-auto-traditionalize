@@ -2,17 +2,15 @@ name: Sync, Convert, and Build ExoticGarden
 
 on:
   schedule:
-    - cron: '0 0 1 * *'
-  workflow_dispatch:
+    - cron: '0 0 1 * *' # 每月一號自動執行
+  workflow_dispatch:     # 手動觸發
 
 jobs:
   sync-and-build:
     runs-on: ubuntu-latest
 
-    env:
-      JITPACK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
     steps:
+      # 1. 設定 Java 環境（Zulu JDK 23）
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -21,36 +19,34 @@ jobs:
           java-package: jdk
           architecture: x64
 
+      # 2. 檢出目前 repo（如果有 fork 可同步）
       - name: Checkout
         uses: actions/checkout@v3
 
+      # 3. 設定 Git 資訊（必要）
       - name: Setup Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      # ⭐ 配置 Maven settings.xml 加入 JitPack 認證資訊
-      - name: Configure Maven settings.xml for JitPack
+      # 4. 先建構 Slimefun4 並 install 到本地 Maven
+      - name: Clone & Build Slimefun4 locally
         run: |
-          mkdir -p ~/.m2
-          echo '<settings>
-  <servers>
-    <server>
-      <id>jitpack.io</id>
-      <username>${{ github.actor }}</username>
-      <password>${{ secrets.GITHUB_TOKEN }}</password>
-    </server>
-  </servers>
-</settings>' > ~/.m2/settings.xml
+          git clone https://github.com/SlimefunGuguProject/Slimefun4.git
+          cd Slimefun4
+          mvn -B install --errors
+          cd ..
 
-      # 下載 ExoticGarden 原始碼
+      # 5. 下載 ExoticGarden 原始碼
       - name: Clone ExoticGarden
         run: |
           git clone https://github.com/SlimefunGuguProject/ExoticGarden.git
 
+      # 6. 安裝 OpenCC 套件（繁簡轉換工具）
       - name: Install OpenCC
         run: sudo apt-get update && sudo apt-get install -y opencc
 
+      # 7. 轉換 .java 和 .yml 為繁體中文（台灣）
       - name: Convert source files to Traditional Chinese
         run: |
           find ./ExoticGarden -path ./ExoticGarden/src/main/resources/languages -prune -o \
@@ -59,16 +55,18 @@ jobs:
                 opencc -i "$file" -o "$file.tmp" -c s2twp.json && mv "$file.tmp" "$file"
               done
 
+      # 8. 將所有 config.yml 中 zh-CN 改為 zh-TW
       - name: Replace zh-CN with zh-TW in config.yml
         run: |
           find ./ExoticGarden -name config.yml -exec sed -i 's/zh-CN/zh-TW/g' {} \;
 
-      # ⭐ 編譯 ExoticGarden，這時會從 jitpack.io 下載 Slimefun4
+      # 9. 建構 ExoticGarden 專案
       - name: Build ExoticGarden
         run: |
           cd ExoticGarden
           mvn -B package --errors
 
+      # 10. 上傳產出的 JAR 檔案
       - name: Upload ExoticGarden JAR
         uses: actions/upload-artifact@v4
         with:
