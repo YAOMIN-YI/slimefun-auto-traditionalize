@@ -1,16 +1,17 @@
-name: Sync, Convert, and Build
+name: Sync, Convert, and Build ExoticGarden
 
 on:
   schedule:
-    - cron: '0 0 1 * *'
-  workflow_dispatch:
+    - cron: '0 0 1 * *' # 每月一號 UTC 零點執行
+  workflow_dispatch:     # 允許手動執行
 
 jobs:
   sync-and-build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Setup Java (Zulu 23)
+      # 設定 Java 環境（Zulu JDK 23）
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
@@ -18,45 +19,49 @@ jobs:
           java-package: jdk
           architecture: x64
 
-      - name: Checkout ExoticGarden repo
+      # 取得目前 repo 的內容（如需本地處理 fork）
+      - name: Checkout
         uses: actions/checkout@v3
 
+      # 設定 Git 使用者
       - name: Setup Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Clone Slimefun4 source (for local install)
-        run: git clone https://github.com/SlimefunGuguProject/Slimefun4.git
-
-      - name: Build and install Slimefun4 locally
+      # 從上游拉取 ExoticGarden 原始碼
+      - name: Clone ExoticGarden
         run: |
-          cd Slimefun4
-          mvn clean install -DskipTests
+          git clone https://github.com/SlimefunGuguProject/ExoticGarden.git
+          cd ExoticGarden
 
+      # 安裝 OpenCC
       - name: Install OpenCC
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y opencc
+        run: sudo apt-get update && sudo apt-get install -y opencc
 
-      - name: Convert .java & .yml to Traditional Chinese (Taiwan)
+      # 轉換 java 和 yml 檔為繁體（排除語言檔案資料夾）
+      - name: Convert files to Traditional Chinese
         run: |
-          find . -path ./Slimefun4 -prune -o -type f \( -name "*.java" -o -name "*.yml" \) -print \
+          find ./ExoticGarden -path ./ExoticGarden/src/main/resources/languages -prune -o \
+            -type f \( -name "*.java" -o -name "*.yml" \) -print \
             | while read file; do
                 opencc -i "$file" -o "$file.tmp" -c s2twp.json && mv "$file.tmp" "$file"
               done
 
+      # 調整 config.yml 中語言設定為 zh-TW
       - name: Replace zh-CN with zh-TW in config.yml
         run: |
-          find . -name config.yml -exec sed -i 's/zh-CN/zh-TW/g' {} \;
+          find ./ExoticGarden -name config.yml -exec sed -i 's/zh-CN/zh-TW/g' {} \;
 
-      - name: Build ExoticGarden project
+      # 編譯 ExoticGarden 專案
+      - name: Build ExoticGarden
         run: |
           cd ExoticGarden
-          mvn clean package -DskipTests
+          mvn -B package --errors
 
-      - name: Upload JAR as Artifact
+      # 上傳結果 JAR
+      - name: Upload Built JAR
         uses: actions/upload-artifact@v4
         with:
-          name: built-jar
+          name: exoticgarden-jar
           path: ExoticGarden/target/*.jar
