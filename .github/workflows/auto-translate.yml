@@ -27,10 +27,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Clone Slimefun4 source (for local install)
-        run: |
-          git clone https://github.com/SlimefunGuguProject/Slimefun4.git
+        run: git clone https://github.com/SlimefunGuguProject/Slimefun4.git
 
-      - name: Build Slimefun4 and install locally
+      - name: Build and install Slimefun4 locally
         run: |
           cd Slimefun4
           mvn clean install -DskipTests
@@ -40,7 +39,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y opencc
 
-      - name: Convert .java and .yml files to Traditional Chinese
+      - name: Convert .java & .yml to Traditional Chinese (Taiwan)
         run: |
           find . -path ./Slimefun4 -prune -o -type f \( -name "*.java" -o -name "*.yml" \) -print \
             | while read file; do
@@ -51,12 +50,13 @@ jobs:
         run: |
           find . -name config.yml -exec sed -i 's/zh-CN/zh-TW/g' {} \;
 
-      - name: Build ExoticGarden plugin
+      - name: Build ExoticGarden project
         run: |
+          cd ExoticGarden
           mvn clean package -DskipTests
 
       - name: Upload JAR as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: exoticgarden-jar
-          path: target/*.jar
+          name: built-jar
+          path: ExoticGarden/target/*.jar
