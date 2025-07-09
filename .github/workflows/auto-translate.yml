@@ -2,15 +2,17 @@ name: Sync, Convert, and Build ExoticGarden
 
 on:
   schedule:
-    - cron: '0 0 1 * *' # 每月一號 UTC 零點執行
-  workflow_dispatch:     # 允許手動執行
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
 
 jobs:
   sync-and-build:
     runs-on: ubuntu-latest
 
+    env:
+      JITPACK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
-      # 設定 Java 環境（Zulu JDK 23）
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -19,28 +21,37 @@ jobs:
           java-package: jdk
           architecture: x64
 
-      # 取得目前 repo 的內容（如需本地處理 fork）
       - name: Checkout
         uses: actions/checkout@v3
 
-      # 設定 Git 使用者
       - name: Setup Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      # 從上游拉取 ExoticGarden 原始碼
+      # ⭐ 配置 Maven settings.xml 加入 JitPack 認證資訊
+      - name: Configure Maven settings.xml for JitPack
+        run: |
+          mkdir -p ~/.m2
+          echo '<settings>
+  <servers>
+    <server>
+      <id>jitpack.io</id>
+      <username>${{ github.actor }}</username>
+      <password>${{ secrets.GITHUB_TOKEN }}</password>
+    </server>
+  </servers>
+</settings>' > ~/.m2/settings.xml
+
+      # 下載 ExoticGarden 原始碼
       - name: Clone ExoticGarden
         run: |
           git clone https://github.com/SlimefunGuguProject/ExoticGarden.git
-          cd ExoticGarden
 
-      # 安裝 OpenCC
       - name: Install OpenCC
         run: sudo apt-get update && sudo apt-get install -y opencc
 
-      # 轉換 java 和 yml 檔為繁體（排除語言檔案資料夾）
-      - name: Convert files to Traditional Chinese
+      - name: Convert source files to Traditional Chinese
         run: |
           find ./ExoticGarden -path ./ExoticGarden/src/main/resources/languages -prune -o \
             -type f \( -name "*.java" -o -name "*.yml" \) -print \
@@ -48,19 +59,17 @@ jobs:
                 opencc -i "$file" -o "$file.tmp" -c s2twp.json && mv "$file.tmp" "$file"
               done
 
-      # 調整 config.yml 中語言設定為 zh-TW
       - name: Replace zh-CN with zh-TW in config.yml
         run: |
           find ./ExoticGarden -name config.yml -exec sed -i 's/zh-CN/zh-TW/g' {} \;
 
-      # 編譯 ExoticGarden 專案
+      # ⭐ 編譯 ExoticGarden，這時會從 jitpack.io 下載 Slimefun4
       - name: Build ExoticGarden
         run: |
           cd ExoticGarden
           mvn -B package --errors
 
-      # 上傳結果 JAR
-      - name: Upload Built JAR
+      - name: Upload ExoticGarden JAR
         uses: actions/upload-artifact@v4
         with:
           name: exoticgarden-jar
