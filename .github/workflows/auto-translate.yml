@@ -8,10 +8,10 @@ on:
 jobs:
   sync-and-build:
     runs-on: ubuntu-latest
+    env:
+      JITPACK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      # - uses: actions/checkout@v4
-
       - name: Setup Java (Zulu, Maven cache)
         uses: actions/setup-java@v4
         with:
@@ -19,8 +19,7 @@ jobs:
           java-version: 23
           java-package: jdk
           architecture: x64
-          # cache: maven
-          
+
       - name: Checkout
         uses: actions/checkout@v3
 
@@ -29,37 +28,45 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Pull from upstream
+      - name: Pull ExoticGarden from upstream
         run: |
           git clone https://github.com/SlimefunGuguProject/ExoticGarden.git
-          cd ./ExoticGarden/
-          # git remote add upstream https://github.com/SlimefunGuguProject/ExoticGarden.git
-          # git fetch upstream
-          # git merge upstream/main --allow-unrelated-histories -m "Sync upstream"
-          # git push origin main
+          cd ExoticGarden
 
       - name: Install OpenCC
         run: sudo apt-get update && sudo apt-get install -y opencc
 
       - name: Convert .java & .yml to Traditional Chinese (Taiwan)
         run: |
-          find . -path ./ExoticGarden/src/main/resources/languages -prune -o -type f \( -name "*.java" -o -name "*.yml" \) -print \
+          find ExoticGarden -type f \( -name "*.java" -o -name "*.yml" \) -print \
             | while read file; do
                 opencc -i "$file" -o "$file.tmp" -c s2twp.json && mv "$file.tmp" "$file"
               done
 
       - name: Replace zh-CN with zh-TW in config.yml
         run: |
-          if [ -f config.yml ]; then
-            sed -i 's/zh-CN/zh-TW/g' config.yml
-          fi
-          find . -name config.yml -exec sed -i 's/zh-CN/zh-TW/g' {} \;
+          find ExoticGarden -name config.yml -exec sed -i 's/zh-CN/zh-TW/g' {} \;
+
+      - name: Configure Maven authentication for JitPack
+        run: |
+          mkdir -p ~/.m2
+          cat <<EOF > ~/.m2/settings.xml
+          <settings>
+            <servers>
+              <server>
+                <id>jitpack.io</id>
+                <username>${env.JITPACK_TOKEN}</username>
+                <password>${env.JITPACK_TOKEN}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
 
       - name: Build Java project
         run: |
-          cd ./ExoticGarden/
+          cd ExoticGarden
           mvn -B package --errors
-          
+
       - name: Upload JAR as Artifact
         uses: actions/upload-artifact@v4
         with:
