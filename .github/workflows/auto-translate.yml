@@ -31,9 +31,9 @@ jobs:
 
       - name: Pull from upstream
         run: |
-          git clone https://github.com/SlimefunGuguProject/Slimefun4.git
-          cd ./Slimefun4/
-          # git remote add upstream https://github.com/SlimefunGuguProject/Slimefun4.git
+          git clone https://github.com/SlimefunGuguProject/ExoticGarden.git
+          cd ./ExoticGarden/
+          # git remote add upstream https://github.com/SlimefunGuguProject/ExoticGarden.git
           # git fetch upstream
           # git merge upstream/main --allow-unrelated-histories -m "Sync upstream"
           # git push origin main
@@ -43,7 +43,7 @@ jobs:
 
       - name: Convert .java & .yml to Traditional Chinese (Taiwan)
         run: |
-          find . -path ./Slimefun4/src/main/resources/languages -prune -o -type f \( -name "*.java" -o -name "*.yml" \) -print \
+          find . -path ./ExoticGarden/src/main/resources/languages -prune -o -type f \( -name "*.java" -o -name "*.yml" \) -print \
             | while read file; do
                 opencc -i "$file" -o "$file.tmp" -c s2twp.json && mv "$file.tmp" "$file"
               done
@@ -57,11 +57,11 @@ jobs:
 
       - name: Build Java project
         run: |
-          cd ./Slimefun4/
+          cd ./ExoticGarden/
           mvn -B package --errors
           
       - name: Upload JAR as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: built-jar
-          path: Slimefun4/target/*.jar
+          path: ExoticGarden/target/*.jar
