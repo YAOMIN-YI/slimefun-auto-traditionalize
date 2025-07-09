@@ -33,7 +33,7 @@ jobs:
           mvn clean package -B
 
       - name: 上傳結果
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ExoticGarden-Traditional
           path: ExoticGarden/target/*.jar
